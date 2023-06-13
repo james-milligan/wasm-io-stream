@@ -1,4 +1,4 @@
-package wrapper
+package host
 
 import (
 	"bufio"
@@ -17,7 +17,7 @@ const (
 	ModuleReadyString = "MODULE_READY\n"
 )
 
-type WasmWrapper struct {
+type IoStreamHost struct {
 	ioConfig *ioConfig
 	mu       *sync.Mutex
 	errChan  chan error
@@ -33,26 +33,17 @@ type ioConfig struct {
 	stderrWriter *io.PipeWriter
 }
 
-func NewWasmWrapper(ctx context.Context, module []byte) (*WasmWrapper, error) {
+func NewIoStreamHost(ctx context.Context, module []byte, args ...string) (*IoStreamHost, error) {
 	ready := make(chan struct{})
-	errChan := make(chan error)
-	stdinReader, stdinWriter := io.Pipe()
-	stdoutReader, stdoutWriter := io.Pipe()
-	stderrReader, stderrWriter := io.Pipe()
-	wasmWrapper := &WasmWrapper{
-		ioConfig: &ioConfig{
-			stdinReader:  stdinReader,
-			stdinWriter:  stdinWriter,
-			stdoutReader: stdoutReader,
-			stdoutWriter: stdoutWriter,
-			stderrReader: stderrReader,
-			stderrWriter: stderrWriter,
-		},
+	errChan := make(chan error, 1)
+
+	wasmWrapper := &IoStreamHost{
 		mu:       &sync.Mutex{},
 		errChan:  errChan,
 		dataChan: make(chan string, 1),
 	}
-	go wasmWrapper.init(ctx, module, ready, errChan)
+
+	go wasmWrapper.init(ctx, module, ready, args)
 
 	select {
 	case <-ready:
@@ -60,23 +51,36 @@ func NewWasmWrapper(ctx context.Context, module []byte) (*WasmWrapper, error) {
 	case err := <-errChan:
 		return nil, err
 	case <-time.After(5 * time.Second):
-		return nil, fmt.Errorf("timed out after %d seconds", 5)
+		return nil, fmt.Errorf("init timed out after %d seconds", 5)
 	}
 }
 
-func (w *WasmWrapper) init(ctx context.Context, module []byte, ready chan struct{}, errChan chan error) {
+func (i *IoStreamHost) init(ctx context.Context, module []byte, ready chan struct{}, args []string) {
 	r := wazero.NewRuntime(ctx)
+
+	stdinReader, stdinWriter := io.Pipe()
+	stdoutReader, stdoutWriter := io.Pipe()
+	stderrReader, stderrWriter := io.Pipe()
+	i.ioConfig = &ioConfig{
+		stdinReader:  stdinReader,
+		stdinWriter:  stdinWriter,
+		stdoutReader: stdoutReader,
+		stdoutWriter: stdoutWriter,
+		stderrReader: stderrReader,
+		stderrWriter: stderrWriter,
+	}
+
 	go func() {
 		<-ctx.Done()
-		w.mu.Lock()
-		defer w.mu.Unlock()
+		i.mu.Lock()
+		defer i.mu.Unlock()
 		r.Close(ctx)
-		w.ioConfig.stdinReader.Close()
-		w.ioConfig.stdinWriter.Close()
-		w.ioConfig.stdoutReader.Close()
-		w.ioConfig.stdoutWriter.Close()
-		w.ioConfig.stderrReader.Close()
-		w.ioConfig.stderrWriter.Close()
+		i.ioConfig.stdinReader.Close()
+		i.ioConfig.stdinWriter.Close()
+		i.ioConfig.stdoutReader.Close()
+		i.ioConfig.stdoutWriter.Close()
+		i.ioConfig.stderrReader.Close()
+		i.ioConfig.stderrWriter.Close()
 	}()
 
 	// Instantiate WASI, which implements system I/O such as console output.
@@ -84,51 +88,52 @@ func (w *WasmWrapper) init(ctx context.Context, module []byte, ready chan struct
 
 	// Read from stderrReader in a separate goroutine
 	go func() {
-		reader := bufio.NewReader(w.ioConfig.stderrReader)
+		reader := bufio.NewReader(i.ioConfig.stderrReader)
 		for {
 			line, err := reader.ReadString('\n')
 			if err != nil {
 				if err == io.EOF {
 					break
 				} else {
-					w.errChan <- fmt.Errorf("Error reading from stderr: %w", err)
+					i.errChan <- fmt.Errorf("Error reading from stderr: %w", err)
 				}
 			}
-			w.errChan <- fmt.Errorf(line)
+			fmt.Println(line)
+			i.errChan <- fmt.Errorf(line[:len(line)-1]) // remove the newline (shouldn't be present in the end result error)
 		}
 	}()
 
 	// Read from stdoutReader in a separate goroutine
 	go func() {
-		reader := bufio.NewReader(w.ioConfig.stdoutReader)
+		reader := bufio.NewReader(i.ioConfig.stdoutReader)
 		for {
 			line, err := reader.ReadString('\n')
 			if err != nil {
 				if err == io.EOF {
 					break
 				} else {
-					w.errChan <- fmt.Errorf("Error reading from stdout: %w", err)
+					i.errChan <- fmt.Errorf("Error reading from stdout: %w", err)
 				}
 			}
 			if line == ModuleReadyString {
 				close(ready)
 				continue
 			}
-			w.dataChan <- line
+			fmt.Println(line)
+			i.dataChan <- line
 		}
 	}()
 
 	// InstantiateModule runs the "_start" function, WASI's "main".
-	_, err := r.InstantiateWithConfig(ctx, module, wazero.NewModuleConfig().WithArgs("wasi",
-		"2").WithStdout(w.ioConfig.stdoutWriter).WithStdin(w.ioConfig.stdinReader).WithStderr(w.ioConfig.stderrWriter))
+	_, err := r.InstantiateWithConfig(ctx, module, wazero.NewModuleConfig().WithArgs("wasi", "test").WithStdout(i.ioConfig.stdoutWriter).WithStdin(i.ioConfig.stdinReader).WithStderr(i.ioConfig.stderrWriter))
 	if err != nil {
 		// Note: Most compilers do not exit the module after running "_start",
 		// unless there was an error. This allows you to call exported functions.
 		if exitErr, ok := err.(*sys.ExitError); ok && exitErr.ExitCode() != 0 {
-			errChan <- fmt.Errorf("exit_code: %d\n", exitErr.ExitCode())
+			i.errChan <- fmt.Errorf("exit_code: %d\n", exitErr.ExitCode())
 			return
 		} else if !ok {
-			errChan <- err
+			i.errChan <- fmt.Errorf("InstantiateWithConfig: %w", err)
 			return
 		}
 	}

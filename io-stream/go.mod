@@ -1,4 +1,4 @@
-module github.com/james-milligan/flagd-wasm
+module github.com/james-milligan/flagd-wasm/io-stream
 
 go 1.20
 
