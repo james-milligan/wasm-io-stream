@@ -1,3 +1,3 @@
-module github.com/james-milligan/flagd-wasm/example
+module github.com/james-milligan/wasm-io-stream/example
 
 go 1.20

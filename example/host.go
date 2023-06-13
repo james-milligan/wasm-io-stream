@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/james-milligan/flagd-wasm/io-stream/pkg/host"
+	"github.com/james-milligan/wasm-io-stream/io-stream/pkg/host"
 )
 
 //go:embed example.wasm

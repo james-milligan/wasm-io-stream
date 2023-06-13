@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/james-milligan/flagd-wasm/io-stream/pkg/client"
+	"github.com/james-milligan/wasm-io-stream/io-stream/pkg/client"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 	"github.com/tetratelabs/wazero/sys"

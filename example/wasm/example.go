@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/james-milligan/flagd-wasm/io-stream/pkg/client"
+	"github.com/james-milligan/wasm-io-stream/io-stream/pkg/client"
 )
 
 func main() {
