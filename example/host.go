@@ -7,7 +7,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/james-milligan/flagd-wasm/io-stream/host"
+	"github.com/james-milligan/flagd-wasm/io-stream/pkg/host"
 )
 
 //go:embed example.wasm
