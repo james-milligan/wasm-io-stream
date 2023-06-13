@@ -17,6 +17,10 @@ func NewIoStreamWasmClient() *IoStreamWasmClient {
 	return &IoStreamWasmClient{}
 }
 
+func (i *IoStreamWasmClient) StartupArgs() []string {
+	return os.Args
+}
+
 func (i *IoStreamWasmClient) SendResponse(res ...any) {
 	fmt.Println(res...)
 }
