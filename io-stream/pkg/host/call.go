@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -14,6 +15,7 @@ func (i *IoStreamClient) Call(ctx context.Context, args ...string) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
+	b = []byte(strings.ReplaceAll(string(b), "\n", ""))
 	b = append(b, []byte("\n")...)
 	_, err = i.ioConfig.stdinWriter.Write(b)
 	if err != nil {
