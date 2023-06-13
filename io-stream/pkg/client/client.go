@@ -10,21 +10,21 @@ const (
 	ModuleReadyString = "MODULE_READY\n"
 )
 
-type IoStreamClient struct{}
+type IoStreamWasmClient struct{}
 
-func NewIoStreamClient() *IoStreamClient {
+func NewIoStreamWasmClient() *IoStreamWasmClient {
 	fmt.Printf(ModuleReadyString)
-	return &IoStreamClient{}
+	return &IoStreamWasmClient{}
 }
 
-func (i *IoStreamClient) SendResponse(res ...any) {
+func (i *IoStreamWasmClient) SendResponse(res ...any) {
 	fmt.Println(res...)
 }
 
-func (i *IoStreamClient) SendError(err error) {
+func (i *IoStreamWasmClient) SendError(err error) {
 	fmt.Fprintln(os.Stderr, err)
 }
 
-func (i *IoStreamClient) Scanner() *bufio.Scanner {
+func (i *IoStreamWasmClient) Scanner() *bufio.Scanner {
 	return bufio.NewScanner(os.Stdin)
 }

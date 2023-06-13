@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/james-milligan/flagd-wasm/io-stream/pkg/client"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 	"github.com/tetratelabs/wazero/sys"
@@ -17,7 +18,7 @@ const (
 	ModuleReadyString = "MODULE_READY\n"
 )
 
-type IoStreamHost struct {
+type IoStreamClient struct {
 	ioConfig *ioConfig
 	mu       *sync.Mutex
 	errChan  chan error
@@ -33,11 +34,11 @@ type ioConfig struct {
 	stderrWriter *io.PipeWriter
 }
 
-func NewIoStreamHost(ctx context.Context, module []byte, args ...string) (*IoStreamHost, error) {
+func NewIoStreamClient(ctx context.Context, module []byte, args ...string) (*IoStreamClient, error) {
 	ready := make(chan struct{})
 	errChan := make(chan error, 1)
 
-	wasmWrapper := &IoStreamHost{
+	wasmWrapper := &IoStreamClient{
 		mu:       &sync.Mutex{},
 		errChan:  errChan,
 		dataChan: make(chan string, 1),
@@ -55,7 +56,7 @@ func NewIoStreamHost(ctx context.Context, module []byte, args ...string) (*IoStr
 	}
 }
 
-func (i *IoStreamHost) init(ctx context.Context, module []byte, ready chan struct{}, args []string) {
+func (i *IoStreamClient) init(ctx context.Context, module []byte, ready chan struct{}, args []string) {
 	r := wazero.NewRuntime(ctx)
 
 	stdinReader, stdinWriter := io.Pipe()
@@ -98,8 +99,7 @@ func (i *IoStreamHost) init(ctx context.Context, module []byte, ready chan struc
 					i.errChan <- fmt.Errorf("Error reading from stderr: %w", err)
 				}
 			}
-			fmt.Println(line)
-			i.errChan <- fmt.Errorf(line[:len(line)-1]) // remove the newline (shouldn't be present in the end result error)
+			i.errChan <- fmt.Errorf(line[:len(line)-1]) // trim newline
 		}
 	}()
 
@@ -115,12 +115,11 @@ func (i *IoStreamHost) init(ctx context.Context, module []byte, ready chan struc
 					i.errChan <- fmt.Errorf("Error reading from stdout: %w", err)
 				}
 			}
-			if line == ModuleReadyString {
+			if line == client.ModuleReadyString {
 				close(ready)
 				continue
 			}
-			fmt.Println(line)
-			i.dataChan <- line
+			i.dataChan <- line[:len(line)-1] // trim newline
 		}
 	}()
 

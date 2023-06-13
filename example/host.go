@@ -5,7 +5,6 @@ import (
 	_ "embed"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/james-milligan/flagd-wasm/io-stream/pkg/host"
 )
@@ -14,22 +13,18 @@ import (
 var exampleWasm []byte
 
 func main() {
-	// Choose the context to use for function calls.
-	ctx, _ := context.WithCancel(context.Background())
-	wasmWrapper, err := host.NewIoStreamHost(ctx, exampleWasm, "flags", "test")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	// create a new IoStreamHost instance passing the embeded wasm module, and any required startup arguments
+	wasmWrapper, err := host.NewIoStreamClient(ctx, exampleWasm, "startup", "args")
 	if err != nil {
 		log.Panic(err)
 	}
-	res, err := wasmWrapper.Call(ctx, "LOG", "world")
+	// call the wasm module via stdin, all strings are json marshalled into a single stringified []string argument
+	res, err := wasmWrapper.Call(ctx, "hello", "world", "foo", "bar")
 	if err != nil {
 		log.Panic(err)
 	}
+	// print the response
 	fmt.Println(string(res))
-
-	time.Sleep(1 * time.Second)
-	// res, err = wasmWrapper.Call(ctx, "ERROR", "world")
-	// if err != nil {
-	// 	fmt.Println("error:", err)
-	// }
-	// fmt.Println(res)
 }

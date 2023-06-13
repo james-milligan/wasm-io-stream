@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func (i *IoStreamHost) Call(ctx context.Context, args ...string) ([]byte, error) {
+func (i *IoStreamClient) Call(ctx context.Context, args ...string) ([]byte, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	b, err := json.Marshal(args)

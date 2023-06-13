@@ -1,4 +1,4 @@
-package test
+package main
 
 import (
 	"encoding/json"
@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	client := client.NewIoStreamClient()
+	client := client.NewIoStreamWasmClient()
 	scanner := client.Scanner()
 	for scanner.Scan() {
 		args := []string{}
@@ -16,11 +16,15 @@ func main() {
 			client.SendError(err)
 			continue
 		}
-		if len(args) != 2 {
-			client.SendError(fmt.Errorf("unexpected number of args, got %d, want 2", len(args)))
+		if len(args) == 0 {
+			client.SendError(fmt.Errorf("no arguments provided to wasm module"))
 			continue
 		}
-		client.SendResponse("arg0: ", args[0], "arg1:", args[1])
+		res := ""
+		for x, arg := range args {
+			res = fmt.Sprintf("%s(arg%d: %s) ", res, x, arg)
+		}
+		client.SendResponse(res)
 	}
 
 	if err := scanner.Err(); err != nil {
