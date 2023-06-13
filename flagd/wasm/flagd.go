@@ -14,11 +14,12 @@ import (
 )
 
 const (
-	CmdResolveBoolean = "RESOLVE_BOOLEAN"
-	CmdResolveString  = "RESOLVE_STRING"
-	CmdResolveInt     = "RESOLVE_INT"
-	CmdResolveFloat   = "RESOLVE_FLOAT"
-	CmdResolveObject  = "RESOLVE_OBJECT"
+	CmdResolveBoolean    = "RESOLVE_BOOLEAN"
+	CmdResolveString     = "RESOLVE_STRING"
+	CmdResolveInt        = "RESOLVE_INT"
+	CmdResolveFloat      = "RESOLVE_FLOAT"
+	CmdResolveObject     = "RESOLVE_OBJECT"
+	CmdFlagConfiguration = "FLAG_CONFIGURATION"
 )
 
 func main() {
@@ -45,6 +46,19 @@ func main() {
 		if err := json.Unmarshal([]byte(scanner.Text()), &args); err != nil {
 			// if the message cannot be parsed into []string return an error using the client.SendError method
 			client.SendError(err)
+			continue
+		}
+		if len(args) == 2 && args[0] == CmdFlagConfiguration {
+			_, _, err = eval.SetState(sync.DataSync{
+				FlagData: args[1],
+				Source:   "wasm",
+				Type:     sync.ALL,
+			})
+			if err != nil {
+				client.SendError(err)
+			} else {
+				client.SendResponse("flag configuration set successfully")
+			}
 			continue
 		}
 		if len(args) != 3 {
