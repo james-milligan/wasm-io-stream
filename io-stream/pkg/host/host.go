@@ -124,7 +124,7 @@ func (i *IoStreamClient) init(ctx context.Context, module []byte, ready chan str
 	}()
 
 	// InstantiateModule runs the "_start" function, WASI's "main".
-	_, err := r.InstantiateWithConfig(ctx, module, wazero.NewModuleConfig().WithArgs("wasi", "test").WithStdout(i.ioConfig.stdoutWriter).WithStdin(i.ioConfig.stdinReader).WithStderr(i.ioConfig.stderrWriter))
+	_, err := r.InstantiateWithConfig(ctx, module, wazero.NewModuleConfig().WithArgs(args...).WithStdout(i.ioConfig.stdoutWriter).WithStdin(i.ioConfig.stdinReader).WithStderr(i.ioConfig.stderrWriter))
 	if err != nil {
 		// Note: Most compilers do not exit the module after running "_start",
 		// unless there was an error. This allows you to call exported functions.
